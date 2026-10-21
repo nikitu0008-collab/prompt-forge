@@ -190,11 +190,17 @@ pytest
 
 ## Дорожная карта
 
-- [x] v0.1 — CLI, интерактивный визард, 11 профилей, ru/en
-- [ ] Веб-версия (FastAPI + простой фронтенд)
-- [ ] Свои шаблоны промптов в конфиге пользователя
-- [ ] Экспорт промптов в JSON / YAML для автоматизации
-- [ ] Плагины для конкретных моделей и IDE
+Текущая цель — релиз **[v0.2.0](https://github.com/nikitu0008-collab/prompt-forge/milestone/1/overview)**
+(декабрь 2026). Задачи ведутся в отдельных issue, чтобы было видно, над чем идёт работа.
+
+- [x] **v0.1** — CLI, интерактивный визард, 11 профилей, ru/en
+- [ ] **v0.2** — в работе:
+  - [#1 Публикация пакета на PyPI](https://github.com/nikitu0008-collab/prompt-forge/issues/1)
+  - [#2 Веб-версия (FastAPI + фронтенд)](https://github.com/nikitu0008-collab/prompt-forge/issues/2)
+  - [#3 Пользовательские шаблоны промптов](https://github.com/nikitu0008-collab/prompt-forge/issues/3)
+  - [#4 Экспорт промптов в JSON / YAML](https://github.com/nikitu0008-collab/prompt-forge/issues/4)
+  - [#5 Режим `--enhance`: доработка промпта моделью](https://github.com/nikitu0008-collab/prompt-forge/issues/5)
+- [ ] **v0.3+** — плагины под конкретные модели и IDE, расширение для VS Code / Cursor
 
 ## Лицензия
 
