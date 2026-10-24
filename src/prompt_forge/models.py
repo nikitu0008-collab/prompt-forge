@@ -20,6 +20,7 @@ class OutputFormat(str, Enum):
     MD = "md"
     PLAIN = "plain"
     JSON = "json"
+    YAML = "yaml"
 
 
 class Lang(str, Enum):

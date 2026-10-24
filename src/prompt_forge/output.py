@@ -51,6 +51,12 @@ def render(spec: PromptSpec, fmt: OutputFormat) -> str:
     bundle = build_bundle(spec)
     if fmt == OutputFormat.JSON:
         return json.dumps(bundle, ensure_ascii=False, indent=2)
+    if getattr(fmt, "value", fmt) == "yaml":
+        try:
+            import yaml
+        except ImportError as error:
+            raise RuntimeError("Для YAML установите PyYAML: pip install PyYAML") from error
+        return yaml.safe_dump(bundle, allow_unicode=True, sort_keys=False)
     if fmt == OutputFormat.PLAIN:
         return bundle["plain"]
     return bundle["prompt"]

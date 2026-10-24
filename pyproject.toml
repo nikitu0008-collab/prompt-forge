@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "prompt-forge"
-version = "0.1.0"
+version = "0.2.0"
 description = "CLI для генерации структурированных промптов для ИИ"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -20,19 +20,24 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Code Generators",
 ]
 dependencies = [
     "typer>=0.12",
     "rich>=13.7",
     "pyperclip>=1.8",
+    "PyYAML>=6.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
+    "httpx>=0.27",
 ]
+
+web = ["fastapi>=0.110", "uvicorn[standard]>=0.29"]
 
 [project.urls]
 Homepage = "https://github.com/nikitu0008-collab/prompt-forge"
@@ -46,7 +51,7 @@ prompt-forge = "prompt_forge.cli:app"
 packages = ["src/prompt_forge"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/prompt_forge", "tests", "README.md", "LICENSE"]
+include = ["src/prompt_forge", "tests", "README.md", "LICENSE", "CHANGELOG.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
