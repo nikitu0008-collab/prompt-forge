@@ -1,5 +1,7 @@
 # Prompt Forge
 
+[![ci](https://github.com/nikitu0008-collab/prompt-forge/actions/workflows/ci.yml/badge.svg)](https://github.com/nikitu0008-collab/prompt-forge/actions/workflows/ci.yml)
+
 **Генератор структурированных промптов для ИИ — из описания задачи в готовое техническое задание для модели.**
 
 Prompt Forge помогает формулировать точные запросы для ChatGPT, Claude, Copilot, Cursor и других ИИ-инструментов. Он собирает задачу, роль, контекст, требования, формат ответа и критерии готовности в один структурированный промпт.

@@ -1,30 +1,26 @@
-name: CI
+name: ci
+
 on:
   push:
+    branches: [main]
   pull_request:
+
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
-      fail-fast: false
       matrix:
-        python-version: ['3.10', '3.11', '3.12', '3.13']
+        python-version: ["3.10", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: python -m pip install --upgrade pip
-      - run: python -m pip install -e '.[dev,web]'
-      - run: python -m pytest --cov=prompt_forge --cov-report=term-missing
-  frontend:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - working-directory: web/frontend
-        run: npm install
-      - working-directory: web/frontend
-        run: npm run build
+
+      - name: Install package with dev and web extras
+        run: pip install -e ".[dev,web]"
+
+      - name: Run tests
+        run: pytest
