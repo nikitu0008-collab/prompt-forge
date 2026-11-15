@@ -208,3 +208,62 @@ def test_delete_template_handles_filesystem_error(monkeypatch):
 
     assert response.status_code == 500
     assert "Не удалось удалить шаблон" in response.json()["detail"]
+
+
+def test_history_endpoint_returns_entries(monkeypatch):
+    monkeypatch.setattr(
+        web_module,
+        "load_history",
+        lambda: [
+            {
+                "task": "Create an API",
+                "prompt": "Generated prompt",
+                "profile": "code",
+            }
+        ],
+    )
+
+    client = TestClient(app)
+    response = client.get("/api/history")
+
+    assert response.status_code == 200
+    assert response.json()[0]["task"] == "Create an API"
+
+
+def test_clear_history_endpoint(monkeypatch):
+    monkeypatch.setattr(web_module, "clear_history", lambda: True)
+
+    client = TestClient(app)
+    response = client.delete("/api/history")
+
+    assert response.status_code == 200
+    assert response.json()["cleared"] is True
+
+
+def test_build_saves_result_to_history(monkeypatch):
+    saved = {}
+
+    def fake_add_history_entry(task, prompt, profile):
+        saved["task"] = task
+        saved["prompt"] = prompt
+        saved["profile"] = profile
+
+    monkeypatch.setattr(
+        web_module,
+        "add_history_entry",
+        fake_add_history_entry,
+    )
+
+    client = TestClient(app)
+    response = client.post(
+        "/api/build",
+        json={
+            "task": "Create an API",
+            "profile": "code",
+        },
+    )
+
+    assert response.status_code == 200
+    assert saved["task"] == "Create an API"
+    assert saved["profile"] == "code"
+    assert saved["prompt"]

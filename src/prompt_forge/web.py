@@ -10,6 +10,7 @@ from prompt_forge.providers import ProviderConfig, ProviderError, enhance_prompt
 from prompt_forge.output import render
 from prompt_forge.templates import delete_template, list_templates, load_template, save_template
 from prompt_forge.analysis import analyze_spec
+from prompt_forge.history import add_history_entry, clear_history, load_history
 
 app = FastAPI(title="Prompt Forge API", version="0.2.0", description="API для генерации и улучшения структурированных промптов")
 class BuildRequest(BaseModel):
@@ -42,10 +43,23 @@ def info():
 @app.get("/api/profiles")
 def profiles(): return [{"key": p.value, "label": get_profile(p).label("ru")} for p in PROFILES if get_profile(p)]
 @app.post("/api/build")
+@app.post("/api/build")
 def build(request: BuildRequest):
-    data = request.model_dump(); data["task"] = data["task"].strip()
-    if not data["task"]: raise HTTPException(422, "task не должен быть пустым")
-    return build_bundle(PromptSpec(**data))
+    data = request.model_dump()
+    data["task"] = data["task"].strip()
+
+    if not data["task"]:
+        raise HTTPException(422, "task не должен быть пустым")
+
+    bundle = build_bundle(PromptSpec(**data))
+
+    add_history_entry(
+        task=data["task"],
+        prompt=bundle["prompt"],
+        profile=data["profile"].value,
+    )
+
+    return bundle
 @app.post("/api/analyze")
 def analyze_prompt(request: BuildRequest):
     """Анализирует полноту спецификации промпта."""
@@ -92,4 +106,16 @@ def remove_template(name: str):
     return {
         "name": name,
         "deleted": True,
+    }
+@app.get("/api/history")
+def history():
+    return load_history()
+
+
+@app.delete("/api/history")
+def remove_history():
+    deleted = clear_history()
+
+    return {
+        "cleared": deleted,
     }
