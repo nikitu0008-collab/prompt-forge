@@ -8,7 +8,7 @@ from prompt_forge.models import Detail, Profile, PromptSpec
 from prompt_forge.profiles import PROFILES, get_profile
 from prompt_forge.providers import ProviderConfig, ProviderError, enhance_prompt
 from prompt_forge.output import render
-from prompt_forge.templates import list_templates, load_template, save_template
+from prompt_forge.templates import delete_template, list_templates, load_template, save_template
 from prompt_forge.analysis import analyze_spec
 
 app = FastAPI(title="Prompt Forge API", version="0.2.0", description="API для генерации и улучшения структурированных промптов")
@@ -26,6 +26,19 @@ class TemplateRequest(BuildRequest):
 
 @app.get("/api/health")
 def health(): return {"status": "ok", "version": "0.2.0"}
+@app.get("/api/info")
+def info():
+    return {
+        "name": "Prompt Forge",
+        "version": "0.3.0",
+        "features": [
+            "structured prompt generation",
+            "multiple profiles",
+            "prompt templates",
+            "provider enhancement",
+            "export formats",
+        ],
+    }
 @app.get("/api/profiles")
 def profiles(): return [{"key": p.value, "label": get_profile(p).label("ru")} for p in PROFILES if get_profile(p)]
 @app.post("/api/build")
@@ -64,3 +77,19 @@ def create_template(request: TemplateRequest):
 def get_template(name: str):
     try: return load_template(name).to_dict()
     except (FileNotFoundError, ValueError) as exc: raise HTTPException(404, str(exc)) from exc
+
+
+@app.delete("/api/templates/{name}")
+def remove_template(name: str):
+    try:
+        deleted = delete_template(name)
+    except OSError as exc:
+        raise HTTPException(500, f"Не удалось удалить шаблон: {exc}") from exc
+
+    if not deleted:
+        raise HTTPException(404, f"Шаблон не найден: {name}")
+
+    return {
+        "name": name,
+        "deleted": True,
+    }

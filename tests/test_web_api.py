@@ -159,3 +159,52 @@ def test_analyze_api_reports_incomplete_spec():
     data = response.json()
 
     assert data["warnings"]
+
+
+def test_info_returns_application_metadata():
+    client = TestClient(app)
+
+    response = client.get("/api/info")
+
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["name"] == "Prompt Forge"
+    assert data["version"] == "0.3.0"
+    assert "prompt templates" in data["features"]
+
+
+def test_delete_template_returns_success(monkeypatch):
+    monkeypatch.setattr(web_module, "delete_template", lambda name: True)
+
+    client = TestClient(app)
+    response = client.delete("/api/templates/example")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "name": "example",
+        "deleted": True,
+    }
+
+
+def test_delete_missing_template_returns_404(monkeypatch):
+    monkeypatch.setattr(web_module, "delete_template", lambda name: False)
+
+    client = TestClient(app)
+    response = client.delete("/api/templates/missing")
+
+    assert response.status_code == 404
+    assert "Шаблон не найден" in response.json()["detail"]
+
+
+def test_delete_template_handles_filesystem_error(monkeypatch):
+    def fail_delete(name):
+        raise OSError("disk is read-only")
+
+    monkeypatch.setattr(web_module, "delete_template", fail_delete)
+
+    client = TestClient(app)
+    response = client.delete("/api/templates/example")
+
+    assert response.status_code == 500
+    assert "Не удалось удалить шаблон" in response.json()["detail"]
