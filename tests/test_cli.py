@@ -333,6 +333,8 @@ def test_templates_delete_missing(monkeypatch):
 
     assert result.exit_code == 1
     assert "missing-template" in result.output
+
+
 def test_templates_save(monkeypatch, tmp_path):
     from unittest.mock import Mock
 
@@ -359,3 +361,34 @@ def test_templates_save(monkeypatch, tmp_path):
     assert result.exit_code == 0
     assert "Шаблон сохранён:" in result.output
     save_mock.assert_called_once()
+
+
+def test_analyze_command_returns_score():
+    result = runner.invoke(
+        app,
+        [
+            "analyze",
+            "--task",
+            "Создать REST API для управления задачами",
+            "--stack",
+            "Python, FastAPI",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Оценка спецификации:" in result.output
+    assert "Заполнено полей:" in result.output
+
+
+def test_analyze_command_shows_recommendations():
+    result = runner.invoke(
+        app,
+        [
+            "analyze",
+            "--task",
+            "Создать API для пользователей",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Рекомендации:" in result.output

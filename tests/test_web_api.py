@@ -122,3 +122,40 @@ def test_build_endpoint_accepts_optional_fields(client):
 def test_export_endpoint_handles_invalid_spec(client):
     response = client.post("/api/export/md", json={"task": "Valid", "profile": "not-a-profile"})
     assert response.status_code == 422
+
+
+def test_analyze_api_returns_analysis():
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/analyze",
+        json={
+            "task": "Создать REST API для управления задачами",
+            "stack": "Python, FastAPI",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert "score" in data
+    assert "warnings" in data
+    assert "suggestions" in data
+    assert "completed_fields" in data
+    assert "total_fields" in data
+
+
+def test_analyze_api_reports_incomplete_spec():
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/analyze",
+        json={"task": "API"},
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["warnings"]

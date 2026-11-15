@@ -11,6 +11,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from prompt_forge.analysis import analyze_spec
 from prompt_forge import __version__
 from prompt_forge.builder import build_bundle, build_prompt
 from prompt_forge.console_setup import setup_console_encoding
@@ -95,6 +96,63 @@ def main(
     if ctx.invoked_subcommand is None:
         _run_wizard(lang.value)
 
+@app.command()
+def analyze(
+    task: str = typer.Option(..., help="Описание задачи"),
+    profile: Profile = typer.Option(Profile.CODE, help="Профиль промпта"),
+    stack: str = typer.Option("", help="Технологический стек"),
+    context: str = typer.Option("", help="Контекст проекта"),
+    require: list[str] = typer.Option(
+        [],
+        "--require",
+        help="Требование к результату",
+    ),
+    accept: list[str] = typer.Option(
+        [],
+        "--accept",
+        help="Критерий готовности",
+    ),
+    constraint: list[str] = typer.Option(
+        [],
+        "--constraint",
+        help="Ограничение",
+    ),
+    output_format: str = typer.Option(
+        "",
+        "--output-format",
+        help="Желаемый формат ответа",
+    ),
+) -> None:
+    """Анализирует полноту спецификации промпта."""
+
+    spec = PromptSpec(
+        task=task,
+        profile=profile,
+        stack=stack,
+        context=context,
+        requirements=require,
+        acceptance=accept,
+        constraints=constraint,
+        output_format=output_format,
+    )
+
+    result = analyze_spec(spec)
+
+    typer.echo(f"Оценка спецификации: {result.score}/100")
+    typer.echo(
+        f"Заполнено полей: "
+        f"{result.completed_fields}/{result.total_fields}"
+    )
+
+    if result.warnings:
+        typer.echo("\nПредупреждения:")
+        for warning in result.warnings:
+            typer.echo(f"- {warning}")
+
+    if result.suggestions:
+        typer.echo("\nРекомендации:")
+        for suggestion in result.suggestions:
+            typer.echo(f"- {suggestion}")
 
 @app.command()
 def build(

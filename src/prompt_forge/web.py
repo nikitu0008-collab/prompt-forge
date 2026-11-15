@@ -9,6 +9,7 @@ from prompt_forge.profiles import PROFILES, get_profile
 from prompt_forge.providers import ProviderConfig, ProviderError, enhance_prompt
 from prompt_forge.output import render
 from prompt_forge.templates import list_templates, load_template, save_template
+from prompt_forge.analysis import analyze_spec
 
 app = FastAPI(title="Prompt Forge API", version="0.2.0", description="API для генерации и улучшения структурированных промптов")
 class BuildRequest(BaseModel):
@@ -32,6 +33,11 @@ def build(request: BuildRequest):
     data = request.model_dump(); data["task"] = data["task"].strip()
     if not data["task"]: raise HTTPException(422, "task не должен быть пустым")
     return build_bundle(PromptSpec(**data))
+@app.post("/api/analyze")
+def analyze_prompt(request: BuildRequest):
+    """Анализирует полноту спецификации промпта."""
+    spec = PromptSpec(**request.model_dump())
+    return analyze_spec(spec).to_dict()
 @app.post("/api/export/{fmt}")
 def export_prompt(fmt: str, request: BuildRequest):
     if fmt not in {"md", "plain", "json", "yaml"}:
