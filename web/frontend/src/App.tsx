@@ -2,24 +2,60 @@ import { useEffect, useState } from 'react';
 
 type Profile = { key: string; label: string };
 type Bundle = { prompt: string; plain: string; profile_title: string };
+type HistoryEntry = { task: string; prompt: string; profile: string; created_at: string; };
 const defaults = { task: '', profile: 'code', stack: '', context: '', requirements: '', input_spec: '', output_format: '', acceptance: '', examples: '', constraints: '', audience: '', detail: 'standard', lang: 'ru', allow_questions: true };
 export default function App() {
   const [form, setForm] = useState(defaults);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [result, setResult] = useState<Bundle | null>(null);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [tab, setTab] = useState<'prompt'|'plain'>('prompt');
   const [provider, setProvider] = useState('openai-compatible');
   const [model, setModel] = useState('gpt-4o-mini');
-  useEffect(() => { fetch('/api/profiles').then(r => r.ok ? r.json() : []).then(setProfiles).catch(() => setNotice('API недоступен — запустите FastAPI на порту 8000.')); }, []);
+  useEffect(() => { fetch('/api/profiles').then(r => r.ok ? r.json() : []).then(setProfiles).catch(() => setNotice('API недоступен — запустите FastAPI на порту 8000.')); loadHistory(); }, []);
   const change = (key: keyof typeof defaults, value: string | boolean) => setForm(old => ({ ...old, [key]: value }));
+  async function loadHistory() {
+  try {
+    const response = await fetch('/api/history');
+
+    if (!response.ok) {
+      throw new Error('Не удалось загрузить историю');
+    }
+
+    const data = await response.json();
+    setHistory(data);
+  } catch {
+    setNotice('Не удалось загрузить историю генераций');
+    }
+  }
   async function build() {
     if (!form.task.trim()) { setNotice('Опишите задачу — это обязательное поле.'); return; }
     setBusy(true); setNotice('');
     const body = { ...form, requirements: form.requirements.split('\n').map(x=>x.trim()).filter(Boolean), acceptance: form.acceptance.split('\n').map(x=>x.trim()).filter(Boolean), examples: form.examples.split('\n').map(x=>x.trim()).filter(Boolean), constraints: form.constraints.split('\n').map(x=>x.trim()).filter(Boolean) };
-    try { const response = await fetch('/api/build', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }); const data = await response.json(); if (!response.ok) throw new Error(data.detail || 'Не удалось создать промпт'); setResult(data); setNotice('Промпт готов'); }
+    try { const response = await fetch('/api/build', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }); const data = await response.json(); if (!response.ok) throw new Error(data.detail || 'Не удалось создать промпт'); setResult(data); setNotice('Промпт готов'); await loadHistory(); }
     catch(e) { setNotice(e instanceof Error ? e.message : 'Ошибка API'); } finally { setBusy(false); }
+  }
+  async function clearHistory() {
+  try {
+    const response = await fetch('/api/history', {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      throw new Error('Не удалось очистить историю');
+    }
+
+    setHistory([]);
+    setNotice('История генераций очищена');
+  } catch (error) {
+    setNotice(
+      error instanceof Error
+        ? error.message
+        : 'Ошибка при очистке истории',
+    );
+  }
   }
   async function enhance() {
     if (!result) return; setBusy(true); setNotice('');
@@ -38,5 +74,64 @@ export default function App() {
       <details><summary>Дополнительные параметры <span>+</span></summary><div className="detail-fields"><label>Входные данные<textarea value={form.input_spec} onChange={e=>change('input_spec',e.target.value)} rows={2}/></label><label>Формат результата<input value={form.output_format} onChange={e=>change('output_format',e.target.value)} placeholder="Например: исходники + README"/></label><label>Критерии готовности<textarea value={form.acceptance} onChange={e=>change('acceptance',e.target.value)} rows={2}/></label><label>Примеры<textarea value={form.examples} onChange={e=>change('examples',e.target.value)} rows={2}/></label><label>Ограничения<textarea value={form.constraints} onChange={e=>change('constraints',e.target.value)} rows={2}/></label><label>Для кого результат<input value={form.audience} onChange={e=>change('audience',e.target.value)} /></label><label className="check"><input type="checkbox" checked={form.allow_questions} onChange={e=>change('allow_questions',e.target.checked)}/> Разрешить уточняющие вопросы ИИ</label></div></details>
       <button className="primary" onClick={build} disabled={busy}>{busy?'Обработка…':'✦  Сгенерировать промпт'} <span>↗</span></button><div className="micro">Без магии. Просто хорошая структура.</div>
     </div><div className="panel output"><div className="panel-head"><div><span className="step">02</span><h2>Результат</h2></div><span className="live"><i/> LIVE OUTPUT</span></div><div className="output-toolbar"><div className="tabs"><button className={tab==='prompt'?'active':''} onClick={()=>setTab('prompt')}>Markdown</button><button className={tab==='plain'?'active':''} onClick={()=>setTab('plain')}>Plain text</button></div><div className="provider-controls"><select aria-label="AI провайдер" value={provider} onChange={e=>setProvider(e.target.value)}><option value="openai-compatible">OpenAI-compatible</option><option value="openai">OpenAI</option><option value="openrouter">OpenRouter</option><option value="ollama">Ollama</option></select><input aria-label="Модель" value={model} onChange={e=>setModel(e.target.value)} placeholder="Модель" /></div><button className="icon-button" title="Скопировать" onClick={()=>navigator.clipboard.writeText(text).then(()=>setNotice('Скопировано в буфер обмена')).catch(()=>setNotice('Не удалось скопировать — выделите текст вручную'))}>▢ <span>Копировать</span></button></div><pre className={result?'result-text':''}>{text}</pre><div className="output-bottom"><span>{result ? `${text.length.toLocaleString('ru-RU')} символов` : 'ГОТОВ К ГЕНЕРАЦИИ'}</span><div>{result&&<><button className="secondary" onClick={enhance} disabled={busy}>✧ Улучшить ИИ</button><button className="secondary" onClick={()=>{const blob=new Blob([result.prompt],{type:'text/markdown;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='prompt-forge.md';a.click();URL.revokeObjectURL(a.href);}}>↓ .md</button><button className="secondary" onClick={()=>{const blob=new Blob([JSON.stringify(result,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='prompt-forge.json';a.click();URL.revokeObjectURL(a.href);}}>↓ .json</button><button className="secondary" onClick={async()=>{try{const body={...form,requirements:form.requirements.split('\n').filter(Boolean),acceptance:form.acceptance.split('\n').filter(Boolean),examples:form.examples.split('\n').filter(Boolean),constraints:form.constraints.split('\n').filter(Boolean)};const r=await fetch('/api/export/yaml',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw new Error(d.detail);const blob=new Blob([d.content],{type:'text/yaml;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='prompt-forge.yaml';a.click();URL.revokeObjectURL(a.href);}catch(e){setNotice(e instanceof Error?e.message:'Ошибка YAML экспорта')}}}>↓ .yaml</button><button className="secondary" onClick={async()=>{const name=window.prompt('Название шаблона');if(!name)return;try{const body={...form,requirements:form.requirements.split('\n').filter(Boolean),acceptance:form.acceptance.split('\n').filter(Boolean),examples:form.examples.split('\n').filter(Boolean),constraints:form.constraints.split('\n').filter(Boolean),name};const r=await fetch('/api/templates',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw new Error(d.detail);setNotice('Шаблон сохранён: '+d.name)}catch(e){setNotice(e instanceof Error?e.message:'Ошибка сохранения шаблона')}}}>＋ Шаблон</button></>}</div></div>{notice&&<div className="notice">{notice}</div>}</div></section>
+    <section className="history-section">
+  <div className="history-head">
+    <div>
+      <div className="eyebrow">RECENT GENERATIONS</div>
+      <h2>История генераций</h2>
+    </div>
+
+    {history.length > 0 && (
+      <button
+        className="secondary"
+        onClick={clearHistory}
+        disabled={busy}
+      >
+        Очистить историю
+      </button>
+    )}
+  </div>
+
+  {history.length === 0 ? (
+    <div className="history-empty">
+      Здесь появятся ваши последние сгенерированные промпты.
+    </div>
+  ) : (
+    <div className="history-list">
+      {[...history]
+        .reverse()
+        .slice(0, 10)
+        .map((entry, index) => (
+          <button
+            key={`${entry.created_at}-${index}`}
+            className="history-item"
+            onClick={() => {
+              setResult({
+                prompt: entry.prompt,
+                plain: entry.prompt,
+                profile_title: entry.profile,
+              });
+              setTab('prompt');
+              setNotice('Загружено из истории');
+            }}
+          >
+            <span className="history-number">
+              {String(index + 1).padStart(2, '0')}
+            </span>
+
+            <span className="history-content">
+              <strong>{entry.task}</strong>
+              <small>
+                {entry.profile} ·{' '}
+                {new Date(entry.created_at).toLocaleString()}
+              </small>
+            </span>
+
+            <span className="history-arrow">↗</span>
+          </button>
+        ))}
+    </div>
+  )}
+</section>
     <footer><span>✳ PROMPT FORGE <b>0.2.0</b></span><span>Сделано для тех, кто создаёт.</span><span>OPEN SOURCE · MIT</span></footer></main>;
 }

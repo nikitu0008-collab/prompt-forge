@@ -122,3 +122,148 @@ def test_build_endpoint_accepts_optional_fields(client):
 def test_export_endpoint_handles_invalid_spec(client):
     response = client.post("/api/export/md", json={"task": "Valid", "profile": "not-a-profile"})
     assert response.status_code == 422
+
+
+def test_analyze_api_returns_analysis():
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/analyze",
+        json={
+            "task": "Создать REST API для управления задачами",
+            "stack": "Python, FastAPI",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert "score" in data
+    assert "warnings" in data
+    assert "suggestions" in data
+    assert "completed_fields" in data
+    assert "total_fields" in data
+
+
+def test_analyze_api_reports_incomplete_spec():
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/analyze",
+        json={"task": "API"},
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["warnings"]
+
+
+def test_info_returns_application_metadata():
+    client = TestClient(app)
+
+    response = client.get("/api/info")
+
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["name"] == "Prompt Forge"
+    assert data["version"] == "0.3.0"
+    assert "prompt templates" in data["features"]
+
+
+def test_delete_template_returns_success(monkeypatch):
+    monkeypatch.setattr(web_module, "delete_template", lambda name: True)
+
+    client = TestClient(app)
+    response = client.delete("/api/templates/example")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "name": "example",
+        "deleted": True,
+    }
+
+
+def test_delete_missing_template_returns_404(monkeypatch):
+    monkeypatch.setattr(web_module, "delete_template", lambda name: False)
+
+    client = TestClient(app)
+    response = client.delete("/api/templates/missing")
+
+    assert response.status_code == 404
+    assert "Шаблон не найден" in response.json()["detail"]
+
+
+def test_delete_template_handles_filesystem_error(monkeypatch):
+    def fail_delete(name):
+        raise OSError("disk is read-only")
+
+    monkeypatch.setattr(web_module, "delete_template", fail_delete)
+
+    client = TestClient(app)
+    response = client.delete("/api/templates/example")
+
+    assert response.status_code == 500
+    assert "Не удалось удалить шаблон" in response.json()["detail"]
+
+
+def test_history_endpoint_returns_entries(monkeypatch):
+    monkeypatch.setattr(
+        web_module,
+        "load_history",
+        lambda: [
+            {
+                "task": "Create an API",
+                "prompt": "Generated prompt",
+                "profile": "code",
+            }
+        ],
+    )
+
+    client = TestClient(app)
+    response = client.get("/api/history")
+
+    assert response.status_code == 200
+    assert response.json()[0]["task"] == "Create an API"
+
+
+def test_clear_history_endpoint(monkeypatch):
+    monkeypatch.setattr(web_module, "clear_history", lambda: True)
+
+    client = TestClient(app)
+    response = client.delete("/api/history")
+
+    assert response.status_code == 200
+    assert response.json()["cleared"] is True
+
+
+def test_build_saves_result_to_history(monkeypatch):
+    saved = {}
+
+    def fake_add_history_entry(task, prompt, profile):
+        saved["task"] = task
+        saved["prompt"] = prompt
+        saved["profile"] = profile
+
+    monkeypatch.setattr(
+        web_module,
+        "add_history_entry",
+        fake_add_history_entry,
+    )
+
+    client = TestClient(app)
+    response = client.post(
+        "/api/build",
+        json={
+            "task": "Create an API",
+            "profile": "code",
+        },
+    )
+
+    assert response.status_code == 200
+    assert saved["task"] == "Create an API"
+    assert saved["profile"] == "code"
+    assert saved["prompt"]

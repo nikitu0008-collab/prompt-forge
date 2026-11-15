@@ -1,4 +1,5 @@
 import json
+import prompt_forge.cli as cli_module
 
 from typer.testing import CliRunner
 
@@ -333,6 +334,8 @@ def test_templates_delete_missing(monkeypatch):
 
     assert result.exit_code == 1
     assert "missing-template" in result.output
+
+
 def test_templates_save(monkeypatch, tmp_path):
     from unittest.mock import Mock
 
@@ -359,3 +362,109 @@ def test_templates_save(monkeypatch, tmp_path):
     assert result.exit_code == 0
     assert "Шаблон сохранён:" in result.output
     save_mock.assert_called_once()
+
+
+def test_analyze_command_returns_score():
+    result = runner.invoke(
+        app,
+        [
+            "analyze",
+            "--task",
+            "Создать REST API для управления задачами",
+            "--stack",
+            "Python, FastAPI",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Оценка спецификации:" in result.output
+    assert "Заполнено полей:" in result.output
+
+
+def test_analyze_command_shows_recommendations():
+    result = runner.invoke(
+        app,
+        [
+            "analyze",
+            "--task",
+            "Создать API для пользователей",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Рекомендации:" in result.output
+
+
+def test_history_command_shows_empty_message(monkeypatch):
+    monkeypatch.setattr(cli_module, "load_history", lambda: [])
+
+    result = runner.invoke(app, ["history"])
+
+    assert result.exit_code == 0
+    assert "История генераций пуста." in result.output
+
+
+def test_history_command_shows_entries(monkeypatch):
+    monkeypatch.setattr(
+        cli_module,
+        "load_history",
+        lambda: [
+            {
+                "task": "Создать API",
+                "profile": "code",
+                "created_at": "2026-11-15T12:00:00+00:00",
+            },
+            {
+                "task": "Исправить ошибку",
+                "profile": "bugfix",
+                "created_at": "2026-11-15T13:00:00+00:00",
+            },
+        ],
+    )
+
+    result = runner.invoke(app, ["history"])
+
+    assert result.exit_code == 0
+    assert "Исправить ошибку" in result.output
+    assert "Создать API" in result.output
+    assert "Профиль: code" in result.output
+
+
+def test_history_command_respects_limit(monkeypatch):
+    monkeypatch.setattr(
+        cli_module,
+        "load_history",
+        lambda: [
+            {
+                "task": f"Задача {index}",
+                "profile": "code",
+                "created_at": "2026-11-15",
+            }
+            for index in range(5)
+        ],
+    )
+
+    result = runner.invoke(app, ["history", "--limit", "2"])
+
+    assert result.exit_code == 0
+    assert "Задача 4" in result.output
+    assert "Задача 3" in result.output
+    assert "Задача 2" not in result.output
+
+
+def test_history_clear_command_clears_history(monkeypatch):
+    monkeypatch.setattr(cli_module, "clear_history", lambda: True)
+
+    result = runner.invoke(app, ["history-clear"])
+
+    assert result.exit_code == 0
+    assert "История генераций очищена." in result.output
+
+
+def test_history_clear_command_handles_empty_history(monkeypatch):
+    monkeypatch.setattr(cli_module, "clear_history", lambda: False)
+
+    result = runner.invoke(app, ["history-clear"])
+
+    assert result.exit_code == 0
+    assert "История генераций уже пуста." in result.output
