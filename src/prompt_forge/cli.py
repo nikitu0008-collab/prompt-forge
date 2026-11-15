@@ -24,6 +24,7 @@ from prompt_forge.doctor import run_checks
 from prompt_forge.providers import ProviderConfig, ProviderError, enhance_prompt
 from prompt_forge.templates import delete_template, list_templates, load_template, save_template
 from prompt_forge.wizard import PromptForgeError, RichPrompter, collect_spec
+from prompt_forge.history import clear_history, load_history
 
 app = typer.Typer(
     name="prompt-forge",
@@ -95,6 +96,42 @@ def main(
         raise typer.Exit()
     if ctx.invoked_subcommand is None:
         _run_wizard(lang.value)
+
+@app.command("history")
+def show_history(
+    limit: int = typer.Option(
+        10,
+        "--limit",
+        "-n",
+        min=1,
+        help="Количество последних записей",
+    ),
+) -> None:
+    """Показывает историю сгенерированных промптов."""
+
+    entries = load_history()
+
+    if not entries:
+        typer.echo("История генераций пуста.")
+        return
+
+    entries = entries[-limit:]
+
+    for index, entry in enumerate(reversed(entries), start=1):
+        typer.echo(f"{index}. {entry.get('task', 'Без задачи')}")
+        typer.echo(f"   Профиль: {entry.get('profile', 'unknown')}")
+        typer.echo(f"   Создано: {entry.get('created_at', 'unknown')}")
+        typer.echo()
+
+
+@app.command("history-clear")
+def clear_history_command() -> None:
+    """Очищает историю сгенерированных промптов."""
+
+    if clear_history():
+        typer.echo("История генераций очищена.")
+    else:
+        typer.echo("История генераций уже пуста.")
 
 @app.command()
 def analyze(
